@@ -1,0 +1,9 @@
+langchain>=0.2.0
+langchain-core>=0.2.0
+langgraph>=0.1.0
+langchain-mcp-adapters>=0.0.1
+# Провайдеры моделей (можно оставить нужный)
+langchain-openai
+langchain-google-genai
+langchain-anthropic
+python-dotenv
