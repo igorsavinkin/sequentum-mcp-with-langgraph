@@ -4,6 +4,10 @@ from dotenv import load_dotenv
 
 from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI  # Example using OpenAI
+try:
+    from langchain.vectorstores import Chroma
+except Exception:
+    Chroma = None
 
 from mcp_client import sequentum_mcp_client
 from graph import create_coordinator_graph
@@ -19,6 +23,40 @@ async def main():
     # 1. Initialize the LLM (e.g. GPT-4o or GPT-4o-mini)
     llm = ChatOpenAI(model="gpt-4o", temperature=0)
     
+    # Attempt to enable a Chroma + OpenAIEmbeddings retriever if a persisted
+    # Chroma DB exists at `CHROMA_PERSIST_DIR` (defaults to `chroma_db`).
+    retriever = None
+    persist_dir = os.environ.get("CHROMA_PERSIST_DIR", "chroma_db")
+    if Chroma is not None and os.path.isdir(persist_dir):
+        try:
+            try:
+                from langchain.embeddings.openai import OpenAIEmbeddings as _OpenAIEmbeddings
+            except Exception:
+                try:
+                    from langchain_openai import OpenAIEmbeddings as _OpenAIEmbeddings
+                except Exception:
+                    _OpenAIEmbeddings = None
+
+            if _OpenAIEmbeddings is None:
+                raise RuntimeError("OpenAIEmbeddings not available")
+
+            embeddings = _OpenAIEmbeddings()
+            try:
+                vectordb = Chroma(persist_directory=persist_dir, embedding_function=embeddings)
+            except TypeError:
+                # Fallback for older/newer LangChain parameter names
+                vectordb = Chroma(persist_directory=persist_dir, embedding=embeddings)
+            retriever = vectordb.as_retriever(search_kwargs={"k": 3})
+            print(f"Loaded Chroma retriever from {persist_dir}")
+        except Exception as e:
+            print(f"Failed to load Chroma retriever: {e}")
+            retriever = None
+    else:
+        if Chroma is not None:
+            print(f"No persisted Chroma DB at '{persist_dir}'. Run scripts/build_chroma_index.py to create one.")
+        else:
+            print("Chroma not installed; install chromadb to enable retriever.")
+    
     print("Connecting to Sequentum Cloud MCP...")
     try:
         # 2. Connect to MCP and extract tools
@@ -30,7 +68,7 @@ async def main():
             print(f"Successfully loaded {len(mcp_tools)} tools from Sequentum MCP.")
             
             # 3. Compile the LangGraph
-            app = create_coordinator_graph(llm, mcp_tools)
+            app = create_coordinator_graph(llm, mcp_tools, retriever=retriever)
             print("\nGraph compiled and ready! Type 'exit' to quit.\n")
             
             # 4. Interactive loop

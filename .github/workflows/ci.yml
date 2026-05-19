@@ -29,3 +29,31 @@ jobs:
         run: |
           python -m pip install pytest
           pytest -q
+
+  chroma_index:
+    if: ${{ secrets.OPENAI_API_KEY != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.14
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Build Chroma index
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python scripts/build_chroma_index.py --persist_dir chroma_db
+
+      - name: Upload Chroma DB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: chroma_db
+          path: chroma_db
