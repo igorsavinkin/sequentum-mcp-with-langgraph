@@ -6,6 +6,19 @@ on:
   pull_request:
 
 jobs:
+  check-secret:
+    runs-on: ubuntu-latest
+    outputs:
+      has-secret: ${{ steps.check.outputs.has-secret }}
+    steps:
+      - id: check
+        run: |
+          if [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then
+            echo "has-secret=false" >> $GITHUB_OUTPUT
+          else
+            echo "has-secret=true" >> $GITHUB_OUTPUT
+          fi
+
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -31,7 +44,8 @@ jobs:
           pytest -q
 
   chroma_index:
-    if: ${{ secrets.OPENAI_API_KEY != '' }}
+    needs: check-secret
+    if: ${{ needs.check-secret.outputs.has-secret == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
