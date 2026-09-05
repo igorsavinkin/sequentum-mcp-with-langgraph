@@ -100,3 +100,6 @@ CI integration
 If you add `OPENAI_API_KEY` as a repository secret, the CI workflow will run
 an optional job to build a Chroma index and upload it as an artifact. This is
 disabled by default when the secret is not present.
+
+
+<!-- Security scan triggered at 2026-09-05 07:47:07 -->
